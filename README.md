@@ -91,6 +91,8 @@ In order to install darknet_ros, clone the latest version from this repository i
     cd ../
     catkin build darknet_ros
 
+Note that the first time takes long to build as the `yolov2-tiny` and `yolov3` weights are downloaded (you can skip this by commenting out the relevant lines in `darknet_ros/CMakeLists.txt`).
+
 Darknet on the CPU is fast (approximately 1.5 seconds on an Intel Core i7-6700HQ CPU @ 2.60GHz × 8) but it's like 500 times faster on GPU! You'll have to have an Nvidia GPU and you'll have to install CUDA. The CMakeLists.txt file automatically detects if you have CUDA installed or not. CUDA is a parallel computing platform and application programming interface (API) model created by Nvidia. If you do not have CUDA on your System the build process will switch to the CPU version of YOLO. If you are compiling with CUDA, you might receive the following build error:
 
     nvcc fatal : Unsupported gpu architecture 'compute_61'.
@@ -98,6 +100,10 @@ Darknet on the CPU is fast (approximately 1.5 seconds on an Intel Core i7-6700HQ
 This means that you need to check the compute capability (version) of your GPU. You can find a list of supported GPUs in CUDA here: [CUDA - WIKIPEDIA](https://en.wikipedia.org/wiki/CUDA#Supported_GPUs). Simply find the compute capability of your GPU and add it into darknet_ros/CMakeLists.txt. Simply add a similar line like
 
     -O3 -gencode arch=compute_62,code=sm_62
+
+### Minimal setup
+
+To test this node with Tiny YOLOv2, set the topic which your camera images are being published to in `darknet_ros/config/ros.yaml` and run `roslaunch darknet_ros darknet_ros.launch`. You can view the detection image with rviz or with `rosrun image_view image_view image:=/darknet_ros/detection_image`, or by setting `others/enable_opencv` to true in `darknet_ros/config/ros.yaml`.
 
 ### Download weights
 
@@ -136,10 +142,6 @@ Then in the launch file you have to point to your new config file in the line:
 ## Basic Usage
 
 In order to get YOLO ROS: Real-Time Object Detection for ROS to run with your robot, you will need to adapt a few parameters. It is the easiest if duplicate and adapt all the parameter files that you need to change from the `darkned_ros` package. These are specifically the parameter files in `config` and the launch file from the `launch` folder.
-
-### Minimal setup
-
-To test this node with Tiny YOLOv2, set the topic which your camera images are being published to in `darknet_ros/config/ros.yaml` and run `roslaunch darknet_ros darknet_ros.launch`. You can view the detection image with rviz or with `rosrun image_view image_view image:=/darknet_ros/detection_image`, or by setting `others/enable_opencv` to true in `darknet_ros/config/ros.yaml`.
 
 ## Nodes
 
