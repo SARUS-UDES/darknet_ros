@@ -1,10 +1,4 @@
-/*
- * YoloObjectDetector.h
- *
- *  Created on: Dec 19, 2016
- *      Author: Marko Bjelonic
- *   Institute: ETH Zurich, Robotic Systems Lab
- */
+
 
 #pragma once
 
@@ -24,8 +18,11 @@
 #include <actionlib/server/simple_action_server.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
-#include <geometry_msgs/Point.h>
 #include <image_transport/image_transport.h>
+
+// Configurable parameters
+#include <darknet_ros/DarknetRosParamConfig.h>
+#include <dynamic_reconfigure/server.h>
 
 // OpenCv
 #include <opencv2/imgproc/imgproc.hpp>
@@ -37,6 +34,11 @@
 #include <darknet_ros_msgs/BoundingBoxes.h>
 #include <darknet_ros_msgs/BoundingBox.h>
 #include <darknet_ros_msgs/CheckForObjectsAction.h>
+
+// Import libraries for message syncronization
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 // Darknet.
 #ifdef GPU
@@ -57,9 +59,10 @@ extern "C" {
 #include <sys/time.h>
 }
 
-extern "C" void ipl_into_image(IplImage* src, image im);
-extern "C" image ipl_to_image(IplImage* src);
-extern "C" void show_image_cv(image p, const char *name, IplImage *disp);
+extern "C" image mat_to_image(cv::Mat m);
+extern "C" cv::Mat image_to_mat(image im);
+// extern "C" void make_window(char *name, int w, int h, int fullscreen);
+// extern "C" int show_image(image p, const char *name, int ms);
 
 namespace darknet_ros {
 
@@ -69,12 +72,6 @@ typedef struct
   float x, y, w, h, prob;
   int num, Class;
 } RosBox_;
-
-typedef struct
-{
-  IplImage* image;
-  std_msgs::Header header;
-} IplImageWithHeader_;
 
 class YoloObjectDetector
 {
@@ -89,7 +86,13 @@ class YoloObjectDetector
    */
   ~YoloObjectDetector();
 
+  // Initializing a dynamic parameter server 
+  dynamic_reconfigure::Server<darknet_ros::DarknetRosParamConfig> cfg_server;
+  dynamic_reconfigure::Server<darknet_ros::DarknetRosParamConfig>::CallbackType cfg_f;
+  void cfg_callback(darknet_ros::DarknetRosParamConfig& config, uint32_t level);
+
  private:
+
   /*!
    * Reads and verifies the ROS parameters.
    * @return true if successful.
@@ -102,10 +105,10 @@ class YoloObjectDetector
   void init();
 
   /*!
-   * Callback of camera.
-   * @param[in] msg image pointer.
+   * Callback which creates a copy of the camera image recieved
+   * @param[in] camera msg image pointer
    */
-  void cameraCallback(const sensor_msgs::ImageConstPtr& msg);
+  void cameraCallback(const sensor_msgs::ImageConstPtr& camMsg);
 
   /*!
    * Check for objects action goal callback.
@@ -127,11 +130,18 @@ class YoloObjectDetector
    * Publishes the detection image.
    * @return true if successful.
    */
-  bool publishDetectionImage(const cv::Mat& detectionImage);
+  bool publishDetectionImage();
 
   //! Typedefs.
-  typedef actionlib::SimpleActionServer<darknet_ros_msgs::CheckForObjectsAction> CheckForObjectsActionServer;
+  typedef actionlib::SimpleActionServer<darknet_ros_msgs::CheckForObjectsAction> 
+                                                  CheckForObjectsActionServer;
   typedef std::shared_ptr<CheckForObjectsActionServer> CheckForObjectsActionServerPtr;
+
+  // Typedefs to create approximate time policy
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, 
+                                          sensor_msgs::Image> ApproximatePolicy;
+  typedef message_filters::Synchronizer<ApproximatePolicy> Sync;
+  boost::shared_ptr<Sync> sync_;
 
   //! ROS node handle.
   ros::NodeHandle nodeHandle_;
@@ -140,69 +150,53 @@ class YoloObjectDetector
   int numClasses_;
   std::vector<std::string> classLabels_;
 
+  //! Advertise and subscribe to image topics.
+  image_transport::ImageTransport imageTransport_;
+  image_transport::Subscriber camSubscriber_;
+
   //! Check for objects action server.
   CheckForObjectsActionServerPtr checkForObjectsActionServer_;
 
-  //! Advertise and subscribe to image topics.
-  image_transport::ImageTransport imageTransport_;
-
-  //! ROS subscriber and publisher.
-  image_transport::Subscriber imageSubscriber_;
-  ros::Publisher objectPublisher_;
+  //! ROS publishers.
   ros::Publisher boundingBoxesPublisher_;
+  ros::Publisher detectionImagePublisher_; 
+  ros::Publisher objectPublisher_;                     
 
   //! Detected objects.
   std::vector<std::vector<RosBox_> > rosBoxes_;
   std::vector<int> rosBoxCounter_;
   darknet_ros_msgs::BoundingBoxes boundingBoxesResults_;
-
-  //! Camera related parameters.
+  
+  // Parameters related to camera image
   int frameWidth_;
   int frameHeight_;
 
-  //! Publisher of the bounding box image.
-  ros::Publisher detectionImagePublisher_;
+  // frame for all publishers to publish in
+  std::string frameToPublishIn_;
+
+  // Threshold before which yolo doesn't include a bounding box
+  double YOLO_THRESH;
+
+  // Whether to use the image header for the header of the result bounding box message  
+  bool USE_IMAGE_HEADER_TIMESTAMP;
+
+  // To store bounding boxes which are then added to the result buffer
+  darknet_ros_msgs::BoundingBox boundingBox_;
 
   // Yolo running on thread.
   std::thread yoloThread_;
 
-  // Darknet.
-  char **demoNames_;
-  image **demoAlphabet_;
-  int demoClasses_;
-
-  network *net_;
-  std_msgs::Header headerBuff_[3];
-  image buff_[3];
-  image buffLetter_[3];
-  int buffId_[3];
-  int buffIndex_ = 0;
-  IplImage * ipl_;
-  float fps_ = 0;
-  float demoThresh_ = 0;
-  float demoHier_ = .5;
-  int running_ = 0;
-
-  int demoDelay_ = 0;
-  int demoFrame_ = 3;
-  float **predictions_;
-  int demoIndex_ = 0;
-  int demoDone_ = 0;
-  float *lastAvg2_;
-  float *lastAvg_;
-  float *avg_;
-  int demoTotal_ = 0;
-  double demoTime_;
-
-  RosBox_ *roiBoxes_;
-  bool viewImage_;
-  bool enableConsoleOutput_;
-  int waitKeyDelay_;
-  int fullScreen_;
-  char *demoPrefix_;
-
+  // Variables to store copy of messages from the callback
   std_msgs::Header imageHeader_;
   cv::Mat camImageCopy_;
+
+  // Buffer to store camera images
+  image buff_[3];
+  
+  // Buffer to store headers of messages recieved
+  std_msgs::Header headerBuff_[3];
+
+  // Mutexes
   boost::shared_mutex mutexImageCallback_;
 
   bool imageStatus_ = false;
@@ -214,38 +208,74 @@ class YoloObjectDetector
   int actionId_;
   boost::shared_mutex mutexActionStatus_;
 
-  // double getWallTime();
+  // Darknet variables
+  char **demoNames_;
+  image **demoAlphabet_;
+  int demoClasses_;
+  network *net_;
 
+  // Below variables are related to darknet inference. For a better understanding
+  // of how inference works, have a look at darknet/src/demo.c
+  image buffLetter_[3];
+  int buffId_[3];
+  int buffIndex_ = 0;
+  float demoHier_ = .5;
+
+  int demoFrame_ = 3;
+  float **predictions_;
+  int demoIndex_ = 0;
+  int demoDone_ = 0;
+  float *lastAvg2_;
+  float *lastAvg_;
+  float *avg_;
+  int demoTotal_ = 0;
+  RosBox_ *roiBoxes_;
+  
+  // The below functions are related to darknet inference
   int sizeNetwork(network *net);
 
   void rememberNetwork(network *net);
-
+  
   detection *avgPredictions(network *net, int *nboxes);
 
-  void *detectInThread();
-
-  void *fetchInThread();
-
-  void *displayInThread(void *ptr);
-
-  void *displayLoop(void *ptr);
-
-  void *detectLoop(void *ptr);
-
-  void setupNetwork(char *cfgfile, char *weightfile, char *datafile, float thresh,
-                    char **names, int classes,
-                    int delay, char *prefix, int avg_frames, float hier, int w, int h,
-                    int frames, int fullscreen);
-
+  /*!
+   * Function which contains the detect, fetch, and publish threads
+   */
   void yolo();
 
-  IplImageWithHeader_ getIplImageWithHeader();
-
+  /*
+   * Used at the beginning to check whether an image has been recieved. This is used to 
+   * start the detect, fetch, and publish threads
+   * @return whether an image has been recieved in the callback
+   */
   bool getImageStatus(void);
 
+  /*
+   * Returns the boolean isNodeRunning_, which is set to False when the node is killed
+   * @return the boolean isNodeRunning_ 
+   */
   bool isNodeRunning(void);
-
+  
+  /*
+   * All results from the detection thread are put into the right message format and 
+   * published in this function
+   */  
   void *publishInThread();
+
+  /*
+   * Inference of bounding boxes happens here
+   */
+  void *detectInThread();
+
+  /*
+   * Fetches messages from the callback and adds them to the buffers
+   */
+  void *fetchInThread();
+
+  // Sets up the network for inference
+  void setupNetwork(char *cfgfile, char *weightfile, char *datafile,
+                    char **names, int classes, int avg_frames, float hier);
+  
 };
 
 } /* namespace darknet_ros*/

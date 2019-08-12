@@ -34,16 +34,6 @@ else()
   list(APPEND LIBRARIES "m")
 endif()
 
-# Find X11
-message ( STATUS "Searching for X11..." )
-find_package ( X11 REQUIRED )
-if ( X11_FOUND )
-  include_directories ( ${X11_INCLUDE_DIR} )
-  link_libraries ( ${X11_LIBRARIES} )
-  message ( STATUS " X11_INCLUDE_DIR: " ${X11_INCLUDE_DIR} )
-  message ( STATUS " X11_LIBRARIES: " ${X11_LIBRARIES} )
-endif ( X11_FOUND )
-
 # Find rquired packeges
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(OpenCV REQUIRED)
@@ -57,11 +47,17 @@ find_package(catkin REQUIRED
     actionlib
     darknet_ros_msgs
     image_transport
+    dynamic_reconfigure
+    sensor_msgs
 )
 
 # Enable OPENCV in darknet
 add_definitions(-DOPENCV)
 add_definitions(-O4 -g)
+
+generate_dynamic_reconfigure_options(
+        config/darknet_ros.cfg
+)
 
 catkin_package(
   INCLUDE_DIRS
@@ -107,7 +103,8 @@ if (CUDA_FOUND)
     ${DARKNET_PATH}/src/col2im.c                  ${DARKNET_PATH}/src/matrix.c
     ${DARKNET_PATH}/src/connected_layer.c         ${DARKNET_PATH}/src/maxpool_layer.c
     ${DARKNET_PATH}/src/convolutional_layer.c     ${DARKNET_PATH}/src/network.c
-    ${DARKNET_PATH}/src/cost_layer.c              ${DARKNET_PATH}/src/normalization_layer.c
+    ${DARKNET_PATH}/src/cost_layer.c              ${DARKNET_PATH}/src/normalization_layer.c				  
+    ${DARKNET_PATH}/src/image_opencv.cpp	  ${DARKNET_PATH}/src/iseg_layer.c
     ${DARKNET_PATH}/src/crnn_layer.c              ${DARKNET_PATH}/src/option_list.c
     ${DARKNET_PATH}/src/crop_layer.c              ${DARKNET_PATH}/src/parser.c
     ${DARKNET_PATH}/src/cuda.c                    ${DARKNET_PATH}/src/region_layer.c
@@ -121,21 +118,12 @@ if (CUDA_FOUND)
     ${DARKNET_PATH}/src/upsample_layer.c          ${DARKNET_PATH}/src/logistic_layer.c
     ${DARKNET_PATH}/src/l2norm_layer.c            ${DARKNET_PATH}/src/yolo_layer.c
 
-    ${DARKNET_PATH}/examples/art.c                ${DARKNET_PATH}/examples/lsd.c
-    ${DARKNET_PATH}/examples/attention.c          ${DARKNET_PATH}/examples/nightmare.c
-    ${DARKNET_PATH}/examples/captcha.c            ${DARKNET_PATH}/examples/regressor.c
-    ${DARKNET_PATH}/examples/cifar.c              ${DARKNET_PATH}/examples/rnn.c
-    ${DARKNET_PATH}/examples/classifier.c         ${DARKNET_PATH}/examples/segmenter.c
-    ${DARKNET_PATH}/examples/coco.c               ${DARKNET_PATH}/examples/super.c
-    ${DARKNET_PATH}/examples/darknet.c            ${DARKNET_PATH}/examples/tag.c
-    ${DARKNET_PATH}/examples/detector.c           ${DARKNET_PATH}/examples/yolo.c
-    ${DARKNET_PATH}/examples/go.c
-
     ${DARKNET_PATH}/src/activation_kernels.cu     ${DARKNET_PATH}/src/crop_layer_kernels.cu
     ${DARKNET_PATH}/src/avgpool_layer_kernels.cu  ${DARKNET_PATH}/src/deconvolutional_kernels.cu
     ${DARKNET_PATH}/src/blas_kernels.cu           ${DARKNET_PATH}/src/dropout_layer_kernels.cu
     ${DARKNET_PATH}/src/col2im_kernels.cu         ${DARKNET_PATH}/src/im2col_kernels.cu
     ${DARKNET_PATH}/src/convolutional_kernels.cu  ${DARKNET_PATH}/src/maxpool_layer_kernels.cu
+
   )
 
   target_link_libraries(${PROJECT_NAME}_lib
@@ -172,6 +160,7 @@ else()
     ${DARKNET_PATH}/src/connected_layer.c         ${DARKNET_PATH}/src/maxpool_layer.c
     ${DARKNET_PATH}/src/convolutional_layer.c     ${DARKNET_PATH}/src/network.c
     ${DARKNET_PATH}/src/cost_layer.c              ${DARKNET_PATH}/src/normalization_layer.c
+    ${DARKNET_PATH}/src/image_opencv.cpp	  ${DARKNET_PATH}/src/iseg_layer.c
     ${DARKNET_PATH}/src/crnn_layer.c              ${DARKNET_PATH}/src/option_list.c
     ${DARKNET_PATH}/src/crop_layer.c              ${DARKNET_PATH}/src/parser.c
     ${DARKNET_PATH}/src/cuda.c                    ${DARKNET_PATH}/src/region_layer.c
@@ -185,15 +174,6 @@ else()
     ${DARKNET_PATH}/src/upsample_layer.c          ${DARKNET_PATH}/src/logistic_layer.c
     ${DARKNET_PATH}/src/l2norm_layer.c            ${DARKNET_PATH}/src/yolo_layer.c
 
-    ${DARKNET_PATH}/examples/art.c                ${DARKNET_PATH}/examples/lsd.c
-    ${DARKNET_PATH}/examples/attention.c          ${DARKNET_PATH}/examples/nightmare.c
-    ${DARKNET_PATH}/examples/captcha.c            ${DARKNET_PATH}/examples/regressor.c
-    ${DARKNET_PATH}/examples/cifar.c              ${DARKNET_PATH}/examples/rnn.c
-    ${DARKNET_PATH}/examples/classifier.c         ${DARKNET_PATH}/examples/segmenter.c
-    ${DARKNET_PATH}/examples/coco.c               ${DARKNET_PATH}/examples/super.c
-    ${DARKNET_PATH}/examples/darknet.c            ${DARKNET_PATH}/examples/tag.c
-    ${DARKNET_PATH}/examples/detector.c           ${DARKNET_PATH}/examples/yolo.c
-    ${DARKNET_PATH}/examples/go.c
   )
 
   target_link_libraries(${PROJECT_NAME}_lib
@@ -218,6 +198,7 @@ target_link_libraries(${PROJECT_NAME}
 
 add_dependencies(${PROJECT_NAME}_lib
   darknet_ros_msgs_generate_messages_cpp
+  ${PROJECT_NAME}_gencfg
 )
 
 install(TARGETS ${PROJECT_NAME}_lib
