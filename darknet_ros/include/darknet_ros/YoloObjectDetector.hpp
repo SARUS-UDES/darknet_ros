@@ -174,6 +174,9 @@ class YoloObjectDetector
   // frame for all publishers to publish in
   std::string frameToPublishIn_;
 
+  // Frames per second that the node is running at
+  float fps_ = 0;
+
   // Threshold before which yolo doesn't include a bounding box
   double YOLO_THRESH;
 
@@ -229,6 +232,7 @@ class YoloObjectDetector
   float *lastAvg_;
   float *avg_;
   int demoTotal_ = 0;
+  double demoTime_;
   RosBox_ *roiBoxes_;
   
   // The below functions are related to darknet inference

@@ -520,8 +520,12 @@ void YoloObjectDetector::yolo()
 
   while (!demoDone_) 
   {
-    ROS_DEBUG("\n[yolo] new cycle \n\n");
+    ROS_DEBUG("\n[yolo] new cycle \n");
     buffIndex_ = (buffIndex_ + 1) % 3;
+
+    fps_ = 1./(what_time_is_it_now() - demoTime_);
+    demoTime_ = what_time_is_it_now();
+    printf("\nFPS:%.1f\n",fps_);
 
     publishInThread();
 
