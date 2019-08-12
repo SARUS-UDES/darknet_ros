@@ -3,7 +3,7 @@
 ## Notes about this fork
 
 The following has been modified in this fork (compared to v1.1.4 of the original repo):
-* darknet has been updated to the current latest commit (darknet points to a [pull request](https://github.com/pjreddie/darknet/compare/master...9b7afacu) that fixes the calling of a decaprecated cuda function)
+* darknet has been updated to the current latest commit (darknet points to a [pull request](https://github.com/pjreddie/darknet/compare/master...9b7afacu) that fixes the calling of a deprecated cuda function)
 * The yolo threshold parameter is now dynamically reconfigurable
 * Printing of messages now uses ROS Debug, Info, and Warn
 * Messages are published in the frame that they are recieved in
@@ -22,7 +22,7 @@ The following has been modified in this fork (compared to v1.1.4 of the original
 
 In conclusion, if you don't need to visualise the detection image in your application and an increase in fps is crucial, or are plagued by the seg faults in the original repo, use this fork. 
 
-Pull requests are very welcome (especially ones that incorporate [REPs](https://github.com/ros-infrastructure/rep))!
+Pull requests are very welcome (especially ones that incorporate [REPs](http://www.ros.org/reps/rep-0000.html))!
 
 
 ## Overview
