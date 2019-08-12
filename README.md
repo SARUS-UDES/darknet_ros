@@ -7,7 +7,7 @@ The following has been modified in this fork (compared to v1.1.4 of the original
 * The yolo threshold parameter is now dynamically reconfigurable
 * Printing of messages now uses ROS Debug, Info, and Warn
 * Messages are published in the frame that they are recieved in
-* More comments have been added
+* Limited detection to only when an image is recieved (reduces wasted GPU usage)
 
 ### Why use this fork?
 
