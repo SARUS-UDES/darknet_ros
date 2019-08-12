@@ -1,3 +1,11 @@
+/*
+ * YoloObjectDetector.cpp
+ *
+ *  Created on: Dec 19, 2016
+ *      Author: Marko Bjelonic
+ *   Institute: ETH Zurich, Robotic Systems Lab
+ */
+
 // yolo object detector
 #include "darknet_ros/YoloObjectDetector.hpp"
 
@@ -55,7 +63,8 @@ bool YoloObjectDetector::readParameters()
   nodeHandle_.param("others/use_camera_msg_timestamp_for_result", useCamMsgTimestamp_, false);
 
   // Check if Xserver is running on Linux.
-  if (XOpenDisplay(NULL)) {
+  if (XOpenDisplay(NULL)) 
+  {
     // Do nothing!
     ROS_INFO("[YoloObjectDetector] Xserver is running.");
   } 
@@ -374,6 +383,7 @@ detection *YoloObjectDetector::avgPredictions(network *net, int *nboxes)
 void *YoloObjectDetector::detectInThread()
 {
   ROS_DEBUG("[detectInThread] detecting bounding boxes\n");
+
   float nms = .4;
 
   layer l = net_->layers[net_->n - 1];
@@ -555,23 +565,34 @@ void YoloObjectDetector::yolo()
     buffIndex_ = (buffIndex_ + 1) % 3;
 
     fetchThread = std::thread(&YoloObjectDetector::fetchInThread, this);
-    detectThread = std::thread(&YoloObjectDetector::detectInThread, this);
 
-    fps_ = 1./(what_time_is_it_now() - demoTime_);
-    demoTime_ = what_time_is_it_now();
-    printf("\nFPS:%.1f\n",fps_);
-
-    if (viewImage_) 
+    if (prevSeq_ != headerBuff_[buffIndex_].seq)
     {
-      displayInThread(0);
+      detectThread = std::thread(&YoloObjectDetector::detectInThread, this);
+
+      fps_ = 1./(what_time_is_it_now() - demoTime_);
+      demoTime_ = what_time_is_it_now();
+      printf("\nFPS:%.1f\n",fps_);
+
+      if (viewImage_) 
+      {
+        displayInThread(0);
+      }
+
+      publishThread = std::thread(&YoloObjectDetector::publishInThread, this);
+
+      prevSeq_ = headerBuff_[buffIndex_].seq;
+
+      fetchThread.join();
+      detectThread.join();
+      publishThread.join();
+      ++count;
+    }
+    else
+    {
+      fetchThread.join();  
     }
 
-    publishThread = std::thread(&YoloObjectDetector::publishInThread, this);
-
-    fetchThread.join();
-    detectThread.join();
-    publishThread.join();
-    ++count;
 
     if (!isNodeRunning()) 
     {
@@ -595,22 +616,35 @@ bool YoloObjectDetector::isNodeRunning(void)
 void *YoloObjectDetector::displayInThread(void *ptr)
 {
   show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO v3", 10);
+  
   int c = cvWaitKey(waitKeyDelay_);
+  
   if (c != -1) c = c%256;
-  if (c == 27) {
+  
+  if (c == 27) 
+  {
       demoDone_ = 1;
       return 0;
-  } else if (c == 82) {
+  } 
+  else if (c == 82) 
+  {
       YOLO_THRESH += .02;
-  } else if (c == 84) {
+  } 
+  else if (c == 84) 
+  {
       YOLO_THRESH -= .02;
-      if(YOLO_THRESH <= .02) YOLO_THRESH = .02;
-  } else if (c == 83) {
+      if (YOLO_THRESH <= .02) YOLO_THRESH = .02;
+  }
+  else if (c == 83) 
+  {
       demoHier_ += .02;
-  } else if (c == 81) {
+  } 
+  else if (c == 81) 
+  {
       demoHier_ -= .02;
       if(demoHier_ <= .0) demoHier_ = .0;
   }
+
   return 0;
 }
 

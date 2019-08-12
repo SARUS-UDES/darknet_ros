@@ -1,4 +1,10 @@
-
+/*
+ * YoloObjectDetector.h
+ *
+ *  Created on: Dec 19, 2016
+ *      Author: Marko Bjelonic
+ *  Institute: ETH Zurich, Robotic Systems Lab
+ */
 
 #pragma once
 
@@ -222,6 +228,7 @@ class YoloObjectDetector
   RosBox_ *roiBoxes_;
   bool viewImage_;
   int waitKeyDelay_;
+  int prevSeq_;
   
   // The below functions are related to darknet inference
   int sizeNetwork(network *net);
