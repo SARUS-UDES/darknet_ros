@@ -35,11 +35,6 @@
 #include <darknet_ros_msgs/BoundingBox.h>
 #include <darknet_ros_msgs/CheckForObjectsAction.h>
 
-// Import libraries for message syncronization
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/approximate_time.h>
-
 // Darknet.
 #ifdef GPU
 #include "cuda_runtime.h"
@@ -61,8 +56,6 @@ extern "C" {
 
 extern "C" image mat_to_image(cv::Mat m);
 extern "C" cv::Mat image_to_mat(image im);
-// extern "C" void make_window(char *name, int w, int h, int fullscreen);
-// extern "C" int show_image(image p, const char *name, int ms);
 
 namespace darknet_ros {
 
@@ -137,12 +130,6 @@ class YoloObjectDetector
                                                   CheckForObjectsActionServer;
   typedef std::shared_ptr<CheckForObjectsActionServer> CheckForObjectsActionServerPtr;
 
-  // Typedefs to create approximate time policy
-  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, 
-                                          sensor_msgs::Image> ApproximatePolicy;
-  typedef message_filters::Synchronizer<ApproximatePolicy> Sync;
-  boost::shared_ptr<Sync> sync_;
-
   //! ROS node handle.
   ros::NodeHandle nodeHandle_;
 
@@ -180,8 +167,8 @@ class YoloObjectDetector
   // Threshold before which yolo doesn't include a bounding box
   double YOLO_THRESH;
 
-  // Whether to use the image header for the header of the result bounding box message  
-  bool USE_IMAGE_HEADER_TIMESTAMP;
+  // Whether to use the cam message timestamp for the timestamp of the result bounding box message  
+  bool useCamMsgTimestamp_;
 
   // To store bounding boxes which are then added to the result buffer
   darknet_ros_msgs::BoundingBox boundingBox_;
@@ -222,18 +209,19 @@ class YoloObjectDetector
   image buffLetter_[3];
   int buffId_[3];
   int buffIndex_ = 0;
+  IplImage * ipl_;
   float demoHier_ = .5;
 
   int demoFrame_ = 3;
   float **predictions_;
   int demoIndex_ = 0;
   int demoDone_ = 0;
-  float *lastAvg2_;
-  float *lastAvg_;
   float *avg_;
   int demoTotal_ = 0;
   double demoTime_;
   RosBox_ *roiBoxes_;
+  bool viewImage_;
+  int waitKeyDelay_;
   
   // The below functions are related to darknet inference
   int sizeNetwork(network *net);
@@ -275,6 +263,11 @@ class YoloObjectDetector
    * Fetches messages from the callback and adds them to the buffers
    */
   void *fetchInThread();
+
+  /*
+   * Displays detection images with OpenCV
+   */
+  void *displayInThread(void *ptr);
 
   // Sets up the network for inference
   void setupNetwork(char *cfgfile, char *weightfile, char *datafile,

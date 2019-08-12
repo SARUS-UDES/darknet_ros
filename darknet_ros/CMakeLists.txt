@@ -34,6 +34,16 @@ else()
   list(APPEND LIBRARIES "m")
 endif()
 
+# Find X11
+message ( STATUS "Searching for X11..." )
+find_package ( X11 REQUIRED )
+if ( X11_FOUND )
+  include_directories ( ${X11_INCLUDE_DIR} )
+  link_libraries ( ${X11_LIBRARIES} )
+  message ( STATUS " X11_INCLUDE_DIR: " ${X11_INCLUDE_DIR} )
+  message ( STATUS " X11_LIBRARIES: " ${X11_LIBRARIES} )
+endif ( X11_FOUND )
+
 # Find rquired packeges
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(OpenCV REQUIRED)

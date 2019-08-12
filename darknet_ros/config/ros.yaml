@@ -26,8 +26,8 @@ publishers:
     queue_size: 1
     latch: true
 
-image_view:
+others:
 
-  enable_opencv: true
+  enable_opencv: false
   wait_key_delay: 1
-  enable_console_output: true
+  use_camera_msg_timestamp_for_result: false

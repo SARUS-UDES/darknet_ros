@@ -1,6 +1,9 @@
 // yolo object detector
 #include "darknet_ros/YoloObjectDetector.hpp"
 
+// Check for xServer
+#include <X11/Xlib.h>
+
 #ifdef DARKNET_FILE_PATH
 std::string darknetFilePath_ = DARKNET_FILE_PATH;
 #else
@@ -46,6 +49,22 @@ YoloObjectDetector::~YoloObjectDetector()
 
 bool YoloObjectDetector::readParameters()
 {
+  // Load common parameters.
+  nodeHandle_.param("others/enable_opencv", viewImage_, true);
+  nodeHandle_.param("others/wait_key_delay", waitKeyDelay_, 3);
+  nodeHandle_.param("others/use_camera_msg_timestamp_for_result", useCamMsgTimestamp_, false);
+
+  // Check if Xserver is running on Linux.
+  if (XOpenDisplay(NULL)) {
+    // Do nothing!
+    ROS_INFO("[YoloObjectDetector] Xserver is running.");
+  } 
+  else 
+  {
+    ROS_INFO("[YoloObjectDetector] Xserver is not running.");
+    viewImage_ = false;
+  }
+
   // Set vector sizes
   nodeHandle_.param("yolo_model/detection_classes/names", classLabels_,
                     std::vector<std::string>(0));
@@ -117,7 +136,7 @@ void YoloObjectDetector::init()
   int objectDetectorQueueSize;
   bool objectDetectorLatch;
 
-  std::string boundingBoxesTopicName;      // Topic to publish boudning boxes to
+  std::string boundingBoxesTopicName;      // Topic to publish bounding boxes to
   int boundingBoxesQueueSize;          // Queue size of publishing to boundingBoxesTopicName
   bool boundingBoxesLatch;             // Enable latching of boundingBoxesTopic
 
@@ -278,9 +297,18 @@ bool YoloObjectDetector::publishDetectionImage()
 
   cv_bridge::CvImage cvImage;
   cvImage.image = image_to_mat(buff_[(buffIndex_ + 1)%3]);
-  cvImage.header.stamp = ros::Time::now();
   cvImage.header.frame_id = frameToPublishIn_;
   cvImage.encoding = sensor_msgs::image_encodings::BGR8;
+
+  if (useCamMsgTimestamp_)
+  {
+    cvImage.header.stamp = headerBuff_[(buffIndex_ + 1) % 3].stamp;
+  }
+  else
+  {
+    cvImage.header.stamp = ros::Time::now();
+  }
+
   detectionImagePublisher_.publish(*cvImage.toImageMsg());
   return true;
 }
@@ -482,6 +510,7 @@ void YoloObjectDetector::yolo()
 
   std::thread detectThread;
   std::thread fetchThread;
+  std::thread publishThread;
 
   srand(2222222);
 
@@ -518,22 +547,30 @@ void YoloObjectDetector::yolo()
 
   int count = 0;
 
+  demoTime_ = what_time_is_it_now();
+
   while (!demoDone_) 
   {
     ROS_DEBUG("\n[yolo] new cycle \n");
     buffIndex_ = (buffIndex_ + 1) % 3;
 
+    fetchThread = std::thread(&YoloObjectDetector::fetchInThread, this);
+    detectThread = std::thread(&YoloObjectDetector::detectInThread, this);
+
     fps_ = 1./(what_time_is_it_now() - demoTime_);
     demoTime_ = what_time_is_it_now();
     printf("\nFPS:%.1f\n",fps_);
 
-    publishInThread();
+    if (viewImage_) 
+    {
+      displayInThread(0);
+    }
 
-    fetchThread = std::thread(&YoloObjectDetector::fetchInThread, this);
-    detectThread = std::thread(&YoloObjectDetector::detectInThread, this);
+    publishThread = std::thread(&YoloObjectDetector::publishInThread, this);
 
     fetchThread.join();
     detectThread.join();
+    publishThread.join();
     ++count;
 
     if (!isNodeRunning()) 
@@ -554,6 +591,29 @@ bool YoloObjectDetector::isNodeRunning(void)
   boost::shared_lock<boost::shared_mutex> lock(mutexNodeStatus_);
   return isNodeRunning_;
 }
+
+void *YoloObjectDetector::displayInThread(void *ptr)
+{
+  show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO v3", 10);
+  int c = cvWaitKey(waitKeyDelay_);
+  if (c != -1) c = c%256;
+  if (c == 27) {
+      demoDone_ = 1;
+      return 0;
+  } else if (c == 82) {
+      YOLO_THRESH += .02;
+  } else if (c == 84) {
+      YOLO_THRESH -= .02;
+      if(YOLO_THRESH <= .02) YOLO_THRESH = .02;
+  } else if (c == 83) {
+      demoHier_ += .02;
+  } else if (c == 81) {
+      demoHier_ -= .02;
+      if(demoHier_ <= .0) demoHier_ = .0;
+  }
+  return 0;
+}
+
 
 void *YoloObjectDetector::publishInThread()
 {
@@ -611,14 +671,15 @@ void *YoloObjectDetector::publishInThread()
     
     ROS_DEBUG("[publishInThread] publishing results.\n");
 
-    if (USE_IMAGE_HEADER_TIMESTAMP)
+    if (useCamMsgTimestamp_)
     {
-      boundingBoxesResults_.image_header = headerBuff_[(buffIndex_ + 1) % 3];
+      boundingBoxesResults_.header.stamp = headerBuff_[(buffIndex_ + 1) % 3].stamp;
     }
-    else 
+    else
     {
       boundingBoxesResults_.header.stamp = ros::Time::now();
     }
+
     boundingBoxesResults_.header.frame_id = frameToPublishIn_;
     boundingBoxesResults_.image_header = headerBuff_[(buffIndex_ + 1) % 3];
 
@@ -658,7 +719,6 @@ void *YoloObjectDetector::publishInThread()
 void YoloObjectDetector::cfg_callback(darknet_ros::DarknetRosParamConfig &config, uint32_t level) 
 {
   YOLO_THRESH = config.YOLO_THRESH;
-  USE_IMAGE_HEADER_TIMESTAMP = config.USE_IMAGE_HEADER_TIMESTAMP;
 }
 
 } /* namespace darknet_ros*/
