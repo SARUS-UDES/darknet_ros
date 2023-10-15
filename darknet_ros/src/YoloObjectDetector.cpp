@@ -615,35 +615,35 @@ bool YoloObjectDetector::isNodeRunning(void)
 
 void *YoloObjectDetector::displayInThread(void *ptr)
 {
-  show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO v3", 10);
+//   show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO v3", 10);
   
-  int c = cvWaitKey(waitKeyDelay_);
+//   int c = cvWaitKey(waitKeyDelay_);
   
-  if (c != -1) c = c%256;
+//   if (c != -1) c = c%256;
   
-  if (c == 27) 
-  {
-      demoDone_ = 1;
-      return 0;
-  } 
-  else if (c == 82) 
-  {
-      YOLO_THRESH += .02;
-  } 
-  else if (c == 84) 
-  {
-      YOLO_THRESH -= .02;
-      if (YOLO_THRESH <= .02) YOLO_THRESH = .02;
-  }
-  else if (c == 83) 
-  {
-      demoHier_ += .02;
-  } 
-  else if (c == 81) 
-  {
-      demoHier_ -= .02;
-      if(demoHier_ <= .0) demoHier_ = .0;
-  }
+//   if (c == 27) 
+//   {
+//       demoDone_ = 1;
+//       return 0;
+//   } 
+//   else if (c == 82) 
+//   {
+//       YOLO_THRESH += .02;
+//   } 
+//   else if (c == 84) 
+//   {
+//       YOLO_THRESH -= .02;
+//       if (YOLO_THRESH <= .02) YOLO_THRESH = .02;
+//   }
+//   else if (c == 83) 
+//   {
+//       demoHier_ += .02;
+//   } 
+//   else if (c == 81) 
+//   {
+//       demoHier_ -= .02;
+//       if(demoHier_ <= .0) demoHier_ = .0;
+//   }
 
   return 0;
 }
