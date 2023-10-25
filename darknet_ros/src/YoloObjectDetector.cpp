@@ -572,7 +572,7 @@ void YoloObjectDetector::yolo()
 
       fps_ = 1./(what_time_is_it_now() - demoTime_);
       demoTime_ = what_time_is_it_now();
-      printf("\nFPS:%.1f\n",fps_);
+      //printf("\nFPS:%.1f\n",fps_);
 
       if (viewImage_) 
       {
